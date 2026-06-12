@@ -43,9 +43,12 @@ class AppIconButton extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: foreground,
-                      fontSize: 12,
+                      fontSize: label.length > 4 ? 11 : 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

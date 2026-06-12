@@ -93,6 +93,9 @@ class TtsPlaybackController extends ChangeNotifier {
   }
 
   String get currentPreview {
+    if (_state == TtsPlaybackState.error) {
+      return '请检查 Key 或网络后重试';
+    }
     final String text = _currentChunk?.text.trim() ?? '';
     if (text.isEmpty) {
       return '正在生成快速起播段';

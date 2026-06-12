@@ -56,8 +56,8 @@ class ReaderBottomBar extends StatelessWidget {
             ),
             AppIconButton(
               palette: palette,
-              icon: Icons.text_fields_rounded,
-              label: 'Aa',
+              icon: Icons.tune_rounded,
+              label: '阅读及\nTTS设置',
               onTap: onSettingsTap,
             ),
             AppIconButton(

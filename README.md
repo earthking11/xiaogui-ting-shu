@@ -6,19 +6,21 @@
 
 ## 下载
 
-当前版本：`v1.0`
+当前版本：`v1.1`
 
 前往 Release 下载 APK：
 
-[下载小龟听书 v1.0](https://github.com/earthking11/xiaogui-ting-shu/releases/tag/v1.0)
+[下载小龟听书 v1.1](https://github.com/earthking11/xiaogui-ting-shu/releases/tag/v1.1)
 
 安装包名称：
 
 ```text
-xiaogui-ting-shu-v1.0-arm64-debug.apk
+xiaogui-ting-shu-v1.1-arm64-debug.apk
 ```
 
 说明：这是测试版 APK，适合 arm64 Android 手机安装体验。
+
+完整版本变化见：[更新日志](./CHANGELOG.md)
 
 ## 主要功能
 
@@ -46,14 +48,14 @@ xiaogui-ting-shu-v1.0-arm64-debug.apk
 
 - 上下滑动阅读正文。
 - 点击屏幕空白处，可以显示或隐藏顶部信息栏和底部工具栏。
-- 点击 `Aa` 可以调整主题、字号、行距、音色和语速。
+- 点击 `阅读及 TTS设置` 可以调整主题、字号、行距、音色和语速。
 - 点击书签按钮可以保存当前阅读位置。
 
 ### 听书
 
 1. 在阅读页点击 `我想听书`。
 2. 首次使用时，按提示填写 MiMo API Key。
-3. 也可以先进入 `Aa` 设置页，填写 Key 后点击 `测试 API 连通性`。
+3. 也可以先进入 `阅读及 TTS设置`，填写 Key 后点击 `测试 API 连通性`。
 4. 连通性正常后，再点击 `我想听书` 开始朗读。
 
 听书开始后，底部会出现一个小播放器，显示当前播放进度和下一段是否已经生成。

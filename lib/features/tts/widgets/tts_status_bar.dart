@@ -101,7 +101,7 @@ class TtsStatusBar extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton.filledTonal(
+              FilledButton.tonalIcon(
                 onPressed: canToggle ? onPrimary : null,
                 icon: Icon(
                   state == TtsPlaybackState.playing ||
@@ -109,7 +109,14 @@ class TtsStatusBar extends StatelessWidget {
                       ? Icons.pause_rounded
                       : Icons.play_arrow_rounded,
                 ),
+                label: Text(_compactActionLabel(state)),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 38),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
+              const SizedBox(width: 4),
               IconButton(
                 onPressed:
                     state == TtsPlaybackState.preparing ||
@@ -166,6 +173,18 @@ class TtsStatusBar extends StatelessWidget {
     final int minutes = totalSeconds ~/ 60;
     final int seconds = totalSeconds % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _compactActionLabel(TtsPlaybackState state) {
+    return switch (state) {
+      TtsPlaybackState.playing || TtsPlaybackState.bufferingNext => '暂停',
+      TtsPlaybackState.paused => '继续',
+      TtsPlaybackState.error => '重试',
+      TtsPlaybackState.completed => '再听',
+      TtsPlaybackState.needsApiKey => '填 Key',
+      TtsPlaybackState.preparing => '准备中',
+      TtsPlaybackState.idle => primaryLabel,
+    };
   }
 }
 

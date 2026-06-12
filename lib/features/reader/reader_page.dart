@@ -147,6 +147,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
             return;
           }
           _isRestoringInitialPosition = false;
+          _handleVisibleItemsChanged();
         });
       });
     } on Exception {
@@ -298,9 +299,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     await widget.keyStore.saveApiKey(apiKey);
     setState(() => _maskedApiKey = widget.keyStore.mask(apiKey));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('MiMo API Key 已保存')));
+      _showReaderSnackBar('MiMo API Key 已保存');
     }
   }
 
@@ -308,9 +307,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     await widget.keyStore.clearApiKey();
     setState(() => _maskedApiKey = '未填写');
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('MiMo API Key 已清除')));
+      _showReaderSnackBar('MiMo API Key 已清除');
     }
   }
 
@@ -324,7 +321,10 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
           content: TextField(
             controller: controller,
             autofocus: true,
-            obscureText: true,
+            autocorrect: false,
+            enableSuggestions: false,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.done,
             decoration: const InputDecoration(hintText: 'Key 只保存在本机'),
           ),
           actions: [
@@ -344,7 +344,13 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     final String apiKey = controller.text.trim();
     controller.dispose();
 
-    if (shouldStart != true || apiKey.isEmpty) {
+    if (shouldStart != true) {
+      return;
+    }
+    if (apiKey.isEmpty) {
+      if (mounted) {
+        _showReaderSnackBar('请先填写 API Key');
+      }
       return;
     }
 
@@ -428,9 +434,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
       (bookmark) => bookmark.paragraphIndex == paragraphIndex,
     );
     if (exists) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('这一段已经加过书签了')));
+      _showReaderSnackBar('这一段已经有书签了');
       return;
     }
 
@@ -453,9 +457,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     });
     await widget.settingsRepository.saveBookmarks(widget.book.id, _bookmarks);
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已添加书签')));
+      _showReaderSnackBar('已添加书签 · 已读 ${bookmark.percent.toStringAsFixed(1)}%');
     }
   }
 
@@ -539,6 +541,48 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
     }
   }
 
+  double _readingBottomPadding(bool ttsVisible) {
+    if (_controlsVisible && ttsVisible) {
+      return 340;
+    }
+    if (_controlsVisible) {
+      return 210;
+    }
+    if (ttsVisible) {
+      return 230;
+    }
+    return 130;
+  }
+
+  double _progressPillBottom(bool ttsVisible) {
+    if (_controlsVisible && ttsVisible) {
+      return 286;
+    }
+    if (_controlsVisible) {
+      return 108;
+    }
+    if (ttsVisible) {
+      return 186;
+    }
+    return 18;
+  }
+
+  void _showReaderSnackBar(String message) {
+    final bool ttsVisible = _ttsController.state != TtsPlaybackState.idle;
+    final double bottomMargin = _controlsVisible || ttsVisible
+        ? _progressPillBottom(ttsVisible) + 64
+        : 24;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ReaderThemePalette palette = _palette;
@@ -580,6 +624,8 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
                   child: AnimatedBuilder(
                     animation: _ttsController,
                     builder: (context, _) {
+                      final bool ttsVisible =
+                          _ttsController.state != TtsPlaybackState.idle;
                       return Stack(
                         children: [
                           Listener(
@@ -605,11 +651,11 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
                                 child: ScrollablePositionedList.separated(
                                   itemScrollController: _itemScrollController,
                                   itemPositionsListener: _itemPositionsListener,
-                                  padding: const EdgeInsets.fromLTRB(
+                                  padding: EdgeInsets.fromLTRB(
                                     24,
                                     84,
                                     24,
-                                    180,
+                                    _readingBottomPadding(ttsVisible),
                                   ),
                                   itemCount: _paragraphs.length,
                                   separatorBuilder: (_, index) => SizedBox(
@@ -697,8 +743,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (_ttsController.state !=
-                                    TtsPlaybackState.idle)
+                                if (ttsVisible)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 12),
                                     child: TtsStatusBar(
@@ -739,11 +784,7 @@ class _ReaderPageState extends State<ReaderPage> with WidgetsBindingObserver {
                           ),
                           Positioned(
                             right: 18,
-                            bottom: _controlsVisible
-                                ? 104
-                                : _ttsController.state == TtsPlaybackState.idle
-                                ? 18
-                                : 132,
+                            bottom: _progressPillBottom(ttsVisible),
                             child: _ReadingProgressPill(
                               palette: palette,
                               percent: currentPercent,

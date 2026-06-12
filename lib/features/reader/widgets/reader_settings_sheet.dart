@@ -35,9 +35,35 @@ class ReaderSettingsSheet extends StatefulWidget {
 
 class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
   late final TextEditingController _apiKeyController = TextEditingController();
+  late ReaderSettings _readerSettings;
+  late TtsSettings _ttsSettings;
+  late String _maskedApiKey;
   bool _saving = false;
   bool _testing = false;
-  String? _testResult;
+  String? _apiFeedback;
+  bool _apiFeedbackSucceeded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _readerSettings = widget.readerSettings;
+    _ttsSettings = widget.ttsSettings;
+    _maskedApiKey = widget.maskedApiKey;
+  }
+
+  @override
+  void didUpdateWidget(covariant ReaderSettingsSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.readerSettings != widget.readerSettings) {
+      _readerSettings = widget.readerSettings;
+    }
+    if (oldWidget.ttsSettings != widget.ttsSettings) {
+      _ttsSettings = widget.ttsSettings;
+    }
+    if (oldWidget.maskedApiKey != widget.maskedApiKey) {
+      _maskedApiKey = widget.maskedApiKey;
+    }
+  }
 
   @override
   void dispose() {
@@ -71,13 +97,23 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '阅读设置',
+                  '阅读及 TTS 设置',
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(color: palette.foreground),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  '外观、朗读声音和 API Key 都在这里调整。',
+                  style: TextStyle(
+                    color: palette.secondaryText,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
                 const SizedBox(height: 18),
-                _SectionTitle(title: '主题', color: palette.foreground),
+                _SectionTitle(title: '阅读外观', color: palette.foreground),
+                _SubsectionLabel(text: '主题', color: palette.secondaryText),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -92,15 +128,15 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                         ),
                         side: controlBorder,
                         checkmarkColor: palette.accent,
-                        selected: item.id == widget.readerSettings.themeId,
-                        onSelected: (_) => widget.onReaderSettingsChanged(
-                          widget.readerSettings.copyWith(themeId: item.id),
+                        selected: item.id == _readerSettings.themeId,
+                        onSelected: (_) => _applyReaderSettings(
+                          _readerSettings.copyWith(themeId: item.id),
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                _SectionTitle(title: '字号', color: palette.foreground),
+                const SizedBox(height: 14),
+                _SubsectionLabel(text: '字号', color: palette.secondaryText),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -115,34 +151,32 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                         ),
                         side: controlBorder,
                         checkmarkColor: palette.accent,
-                        selected:
-                            widget.readerSettings.fontSize == size.toDouble(),
-                        onSelected: (_) => widget.onReaderSettingsChanged(
-                          widget.readerSettings.copyWith(
-                            fontSize: size.toDouble(),
-                          ),
+                        selected: _readerSettings.fontSize == size.toDouble(),
+                        onSelected: (_) => _applyReaderSettings(
+                          _readerSettings.copyWith(fontSize: size.toDouble()),
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                _SectionTitle(title: '行距', color: palette.foreground),
+                const SizedBox(height: 14),
+                _SubsectionLabel(text: '行距', color: palette.secondaryText),
                 Slider(
                   min: 1.45,
                   max: 2.05,
                   divisions: 12,
-                  value: widget.readerSettings.lineHeight,
-                  label: widget.readerSettings.lineHeight.toStringAsFixed(2),
+                  value: _readerSettings.lineHeight,
+                  label: _readerSettings.lineHeight.toStringAsFixed(2),
                   activeColor: palette.accent,
                   inactiveColor: palette.border,
-                  onChanged: (value) => widget.onReaderSettingsChanged(
-                    widget.readerSettings.copyWith(lineHeight: value),
+                  onChanged: (value) => _applyReaderSettings(
+                    _readerSettings.copyWith(lineHeight: value),
                   ),
                 ),
                 const SizedBox(height: 18),
-                _SectionTitle(title: '音色', color: palette.foreground),
+                _SectionTitle(title: '朗读设置', color: palette.foreground),
+                _SubsectionLabel(text: '音色', color: palette.secondaryText),
                 DropdownButtonFormField<String>(
-                  initialValue: widget.ttsSettings.voiceId,
+                  initialValue: _ttsSettings.voiceId,
                   dropdownColor: palette.card,
                   style: TextStyle(color: palette.foreground, fontSize: 15),
                   decoration: InputDecoration(
@@ -170,16 +204,16 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                       return;
                     }
                     final voice = voiceOptionFor(value);
-                    widget.onTtsSettingsChanged(
-                      widget.ttsSettings.copyWith(
+                    _applyTtsSettings(
+                      _ttsSettings.copyWith(
                         voiceId: voice.id,
                         voiceName: voice.name,
                       ),
                     );
                   },
                 ),
-                const SizedBox(height: 18),
-                _SectionTitle(title: '语速', color: palette.foreground),
+                const SizedBox(height: 14),
+                _SubsectionLabel(text: '语速', color: palette.secondaryText),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -195,10 +229,9 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                         side: controlBorder,
                         checkmarkColor: palette.accent,
                         selected:
-                            widget.ttsSettings.playbackSpeed ==
-                            option.playbackSpeed,
-                        onSelected: (_) => widget.onTtsSettingsChanged(
-                          widget.ttsSettings.copyWith(
+                            _ttsSettings.playbackSpeed == option.playbackSpeed,
+                        onSelected: (_) => _applyTtsSettings(
+                          _ttsSettings.copyWith(
                             playbackSpeed: option.playbackSpeed,
                             speedPrompt: option.prompt,
                           ),
@@ -216,9 +249,9 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                   textInputAction: TextInputAction.done,
                   style: TextStyle(color: palette.foreground),
                   decoration: InputDecoration(
-                    hintText: widget.maskedApiKey == '未填写'
+                    hintText: _maskedApiKey == '未填写'
                         ? '填写 MiMo API Key'
-                        : '当前：${widget.maskedApiKey}',
+                        : '当前：$_maskedApiKey',
                     hintStyle: TextStyle(color: palette.secondaryText),
                     border: inputBorder,
                     enabledBorder: inputBorder,
@@ -235,6 +268,14 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                     fontSize: 13,
                   ),
                 ),
+                if (_apiFeedback != null) ...[
+                  const SizedBox(height: 10),
+                  _ApiFeedbackCard(
+                    palette: palette,
+                    message: _apiFeedback!,
+                    succeeded: _apiFeedbackSucceeded,
+                  ),
+                ],
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -246,13 +287,25 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                                 final String value = _apiKeyController.text
                                     .trim();
                                 if (value.isEmpty) {
+                                  setState(() {
+                                    _apiFeedback = '请先填写 API Key。';
+                                    _apiFeedbackSucceeded = false;
+                                  });
                                   return;
                                 }
-                                setState(() => _saving = true);
+                                setState(() {
+                                  _saving = true;
+                                  _apiFeedback = null;
+                                });
                                 await widget.onSaveApiKey(value);
                                 if (mounted) {
                                   _apiKeyController.clear();
-                                  setState(() => _saving = false);
+                                  setState(() {
+                                    _saving = false;
+                                    _maskedApiKey = _maskApiKey(value);
+                                    _apiFeedback = 'API Key 已保存。';
+                                    _apiFeedbackSucceeded = true;
+                                  });
                                 }
                               },
                         child: Text(_saving ? '保存中...' : '保存 Key'),
@@ -264,11 +317,19 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                         onPressed: _saving || _testing
                             ? null
                             : () async {
-                                setState(() => _saving = true);
+                                setState(() {
+                                  _saving = true;
+                                  _apiFeedback = null;
+                                });
                                 await widget.onClearApiKey();
                                 if (mounted) {
                                   _apiKeyController.clear();
-                                  setState(() => _saving = false);
+                                  setState(() {
+                                    _saving = false;
+                                    _maskedApiKey = '未填写';
+                                    _apiFeedback = 'API Key 已清除。';
+                                    _apiFeedbackSucceeded = true;
+                                  });
                                 }
                               },
                         child: const Text('清除 Key'),
@@ -285,7 +346,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                         : () async {
                             setState(() {
                               _testing = true;
-                              _testResult = null;
+                              _apiFeedback = null;
                             });
                             String result;
                             try {
@@ -300,7 +361,10 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                             }
                             setState(() {
                               _testing = false;
-                              _testResult = result;
+                              _apiFeedback = result;
+                              _apiFeedbackSucceeded = result.startsWith(
+                                '连通性正常',
+                              );
                             });
                           },
                     icon: _testing
@@ -316,32 +380,33 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                     label: Text(_testing ? '正在测试连通性...' : '测试 API 连通性'),
                   ),
                 ),
-                if (_testResult != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: palette.background.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: palette.border),
-                    ),
-                    child: Text(
-                      _testResult!,
-                      style: TextStyle(
-                        color: palette.foreground,
-                        fontWeight: FontWeight.w600,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _applyReaderSettings(ReaderSettings value) {
+    setState(() => _readerSettings = value);
+    widget.onReaderSettingsChanged(value);
+  }
+
+  void _applyTtsSettings(TtsSettings value) {
+    setState(() => _ttsSettings = value);
+    widget.onTtsSettingsChanged(value);
+  }
+
+  String _maskApiKey(String apiKey) {
+    final String value = apiKey.trim();
+    if (value.isEmpty) {
+      return '未填写';
+    }
+    if (value.length <= 4) {
+      return '*' * value.length;
+    }
+    return '${'*' * (value.length - 4)}${value.substring(value.length - 4)}';
   }
 }
 
@@ -360,6 +425,78 @@ class _SectionTitle extends StatelessWidget {
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
           color: color,
           fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _ApiFeedbackCard extends StatelessWidget {
+  const _ApiFeedbackCard({
+    required this.palette,
+    required this.message,
+    required this.succeeded,
+  });
+
+  final ReaderThemePalette palette;
+  final String message;
+  final bool succeeded;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color signalColor = succeeded ? palette.accent : Colors.redAccent;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: signalColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: signalColor.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            succeeded
+                ? Icons.check_circle_outline_rounded
+                : Icons.info_outline_rounded,
+            size: 18,
+            color: signalColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: palette.foreground,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubsectionLabel extends StatelessWidget {
+  const _SubsectionLabel({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
         ),
       ),
     );

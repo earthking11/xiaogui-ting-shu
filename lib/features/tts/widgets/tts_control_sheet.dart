@@ -23,6 +23,11 @@ class TtsControlSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool canStop =
+        state == TtsPlaybackState.preparing ||
+        state == TtsPlaybackState.playing ||
+        state == TtsPlaybackState.paused ||
+        state == TtsPlaybackState.bufferingNext;
     return Container(
       decoration: BoxDecoration(
         color: palette.card,
@@ -45,20 +50,26 @@ class TtsControlSheet extends StatelessWidget {
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('当前状态'),
+                title: const Text('朗读状态'),
                 subtitle: Text(statusMessage ?? '未开始'),
-                trailing: Text(state.name),
+                trailing: Text(
+                  _stateLabel(state),
+                  style: TextStyle(
+                    color: palette.foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('MiMo API Key'),
-                subtitle: Text(maskedApiKey),
+                title: const Text('朗读与 Key 设置'),
+                subtitle: Text('当前 Key：$maskedApiKey'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: onOpenSettings,
               ),
               const SizedBox(height: 10),
               FilledButton.tonalIcon(
-                onPressed: onStop,
+                onPressed: canStop ? onStop : null,
                 icon: const Icon(Icons.stop_circle_outlined),
                 label: const Text('停止朗读'),
               ),
@@ -67,5 +78,18 @@ class TtsControlSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _stateLabel(TtsPlaybackState state) {
+    return switch (state) {
+      TtsPlaybackState.idle => '未开始',
+      TtsPlaybackState.needsApiKey => '需要 Key',
+      TtsPlaybackState.preparing => '准备中',
+      TtsPlaybackState.playing => '正在朗读',
+      TtsPlaybackState.paused => '已暂停',
+      TtsPlaybackState.bufferingNext => '准备下一段',
+      TtsPlaybackState.completed => '已完成',
+      TtsPlaybackState.error => '出错',
+    };
   }
 }
