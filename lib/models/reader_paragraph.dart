@@ -1,3 +1,5 @@
+import '../core/constants.dart';
+
 class ReaderParagraph {
   const ReaderParagraph({
     required this.index,
@@ -13,6 +15,9 @@ class ReaderParagraph {
 }
 
 class ReaderParagraphParser {
+  static const int _softSplitChars = AppConstants.ttsSoftMaxChars;
+  static const int _hardSplitChars = AppConstants.ttsHardMaxChars;
+
   static List<ReaderParagraph> parse(String text) {
     final String normalized = text
         .replaceAll('\r\n', '\n')
@@ -50,7 +55,7 @@ class ReaderParagraphParser {
   }
 
   static List<String> _splitLongBlock(String block) {
-    if (block.length <= 1200) {
+    if (block.length <= _hardSplitChars) {
       return [block];
     }
 
@@ -62,13 +67,13 @@ class ReaderParagraphParser {
       current.write(char);
       final bool isSoftBoundary = '。！？；!?;…\n'.contains(char);
 
-      if (current.length >= 900 && isSoftBoundary) {
+      if (current.length >= _softSplitChars && isSoftBoundary) {
         segments.add(current.toString().trim());
         current.clear();
         continue;
       }
 
-      if (current.length >= 1200) {
+      if (current.length >= _hardSplitChars) {
         segments.add(current.toString().trim());
         current.clear();
       }

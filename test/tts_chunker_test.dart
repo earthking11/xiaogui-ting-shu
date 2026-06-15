@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:novel_tts_reader/core/constants.dart';
 import 'package:novel_tts_reader/features/tts/tts_chunker.dart';
 import 'package:novel_tts_reader/models/reader_paragraph.dart';
 
@@ -59,6 +60,36 @@ void main() {
 
       expect(chunk, isNotNull);
       expect(chunk!.charCount, lessThanOrEqualTo(1100));
+    });
+
+    test('keeps unpunctuated parser segments within the hard TTS limit', () {
+      final List<ReaderParagraph> paragraphs = ReaderParagraphParser.parse(
+        '甲' * 2000,
+      );
+
+      expect(paragraphs.map((paragraph) => paragraph.text.length), [
+        AppConstants.ttsHardMaxChars,
+        900,
+      ]);
+
+      final chunk = chunker.buildChunk(
+        bookId: 'book-4',
+        paragraphs: paragraphs,
+        startParagraphIndex: 0,
+      );
+
+      expect(chunk, isNotNull);
+      expect(chunk!.charCount, lessThanOrEqualTo(AppConstants.ttsHardMaxChars));
+    });
+
+    test('does not create a chunk for empty paragraph text', () {
+      final chunk = chunker.buildChunk(
+        bookId: 'book-empty',
+        paragraphs: _paragraphsFrom(['   ']),
+        startParagraphIndex: 0,
+      );
+
+      expect(chunk, isNull);
     });
   });
 }

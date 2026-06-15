@@ -21,15 +21,18 @@ class SettingsRepository {
   }
 
   Future<ReaderSettings> loadReaderSettings() async {
-    final SharedPreferences prefs = await _prefs;
-    final String? raw = prefs.getString(PreferenceKeys.readerSettings);
-    if (raw == null || raw.isEmpty) {
+    final Map<String, dynamic>? json = await _loadJsonObject(
+      PreferenceKeys.readerSettings,
+    );
+    if (json == null) {
       return ReaderSettings.defaults();
     }
 
-    return ReaderSettings.fromJson(
-      Map<String, dynamic>.from(jsonDecode(raw) as Map),
-    );
+    try {
+      return ReaderSettings.fromJson(json);
+    } on Object {
+      return ReaderSettings.defaults();
+    }
   }
 
   Future<void> saveReaderSettings(ReaderSettings settings) async {
@@ -41,15 +44,18 @@ class SettingsRepository {
   }
 
   Future<TtsSettings> loadTtsSettings() async {
-    final SharedPreferences prefs = await _prefs;
-    final String? raw = prefs.getString(PreferenceKeys.ttsSettings);
-    if (raw == null || raw.isEmpty) {
+    final Map<String, dynamic>? json = await _loadJsonObject(
+      PreferenceKeys.ttsSettings,
+    );
+    if (json == null) {
       return TtsSettings.defaults();
     }
 
-    return TtsSettings.fromJson(
-      Map<String, dynamic>.from(jsonDecode(raw) as Map),
-    );
+    try {
+      return TtsSettings.fromJson(json);
+    } on Object {
+      return TtsSettings.defaults();
+    }
   }
 
   Future<void> saveTtsSettings(TtsSettings settings) async {
@@ -68,19 +74,32 @@ class SettingsRepository {
     if (raw is! Map) {
       return null;
     }
-    return ReadingProgress.fromJson(Map<String, dynamic>.from(raw));
+    try {
+      return ReadingProgress.fromJson(Map<String, dynamic>.from(raw));
+    } on Object {
+      return null;
+    }
   }
 
   Future<Map<String, ReadingProgress>> loadAllProgress() async {
     final Map<String, dynamic> map = await _loadJsonMap(
       PreferenceKeys.readingProgressMap,
     );
-    return map.map(
-      (key, value) => MapEntry(
-        key,
-        ReadingProgress.fromJson(Map<String, dynamic>.from(value as Map)),
-      ),
-    );
+    final result = <String, ReadingProgress>{};
+    for (final entry in map.entries) {
+      final dynamic raw = entry.value;
+      if (raw is! Map) {
+        continue;
+      }
+      try {
+        result[entry.key] = ReadingProgress.fromJson(
+          Map<String, dynamic>.from(raw),
+        );
+      } on Object {
+        // Ignore one damaged entry instead of hiding all progress.
+      }
+    }
+    return result;
   }
 
   Future<void> saveReadingProgress(ReadingProgress progress) async {
@@ -99,10 +118,15 @@ class SettingsRepository {
     if (raw is! List) {
       return const [];
     }
-    return raw
-        .whereType<Map>()
-        .map((item) => Bookmark.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
+    final bookmarks = <Bookmark>[];
+    for (final item in raw.whereType<Map>()) {
+      try {
+        bookmarks.add(Bookmark.fromJson(Map<String, dynamic>.from(item)));
+      } on Object {
+        // Ignore one damaged bookmark instead of hiding the whole list.
+      }
+    }
+    return bookmarks;
   }
 
   Future<void> saveBookmarks(String bookId, List<Bookmark> bookmarks) async {
@@ -128,12 +152,24 @@ class SettingsRepository {
   }
 
   Future<Map<String, dynamic>> _loadJsonMap(String key) async {
+    return await _loadJsonObject(key) ?? {};
+  }
+
+  Future<Map<String, dynamic>?> _loadJsonObject(String key) async {
     final SharedPreferences prefs = await _prefs;
     final String? raw = prefs.getString(key);
     if (raw == null || raw.isEmpty) {
-      return {};
+      return null;
     }
-    return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    try {
+      final dynamic decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        return null;
+      }
+      return Map<String, dynamic>.from(decoded);
+    } on Object {
+      return null;
+    }
   }
 
   Future<void> _saveJsonMap(String key, Map<String, dynamic> value) async {

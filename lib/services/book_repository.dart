@@ -15,20 +15,11 @@ class BookRepository {
 
   Future<List<Book>> loadBooks() async {
     final File file = await _catalogFile();
-    if (!await file.exists()) {
-      return <Book>[];
+    final List<Book>? books = await _readCatalogFile(file);
+    if (books != null) {
+      return books;
     }
-
-    final dynamic decoded = jsonDecode(await file.readAsString());
-    if (decoded is! List) {
-      return <Book>[];
-    }
-
-    return decoded
-        .whereType<Map>()
-        .map((item) => Book.fromJson(Map<String, dynamic>.from(item)))
-        .toList()
-      ..sort((a, b) => b.importedAt.compareTo(a.importedAt));
+    return await _readCatalogFile(await _backupCatalogFile()) ?? <Book>[];
   }
 
   Future<Book> importPickedFile(PickedTxtFile pickedFile) async {
@@ -81,15 +72,47 @@ class BookRepository {
 
   Future<void> _writeCatalog(List<Book> books) async {
     final File file = await _catalogFile();
-    await file.writeAsString(
-      jsonEncode(books.map((book) => book.toJson()).toList()),
-      flush: true,
+    final String payload = jsonEncode(
+      books.map((book) => book.toJson()).toList(),
     );
+    await file.writeAsString(payload, flush: true);
+    await (await _backupCatalogFile()).writeAsString(payload, flush: true);
+  }
+
+  Future<List<Book>?> _readCatalogFile(File file) async {
+    if (!await file.exists()) {
+      return null;
+    }
+
+    try {
+      final dynamic decoded = jsonDecode(await file.readAsString());
+      if (decoded is! List) {
+        return null;
+      }
+
+      final books = <Book>[];
+      for (final item in decoded.whereType<Map>()) {
+        try {
+          books.add(Book.fromJson(Map<String, dynamic>.from(item)));
+        } on Object {
+          // Ignore one damaged catalog entry instead of hiding the shelf.
+        }
+      }
+      books.sort((a, b) => b.importedAt.compareTo(a.importedAt));
+      return books;
+    } on Object {
+      return null;
+    }
   }
 
   Future<File> _catalogFile() async {
     final Directory booksDir = await _booksDirectory();
     return File('${booksDir.path}/books.json');
+  }
+
+  Future<File> _backupCatalogFile() async {
+    final Directory booksDir = await _booksDirectory();
+    return File('${booksDir.path}/books.json.bak');
   }
 
   Future<Directory> _booksDirectory() async {

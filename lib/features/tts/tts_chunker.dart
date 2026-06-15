@@ -67,13 +67,18 @@ class TtsChunker {
 
     final ReaderParagraph startParagraph = paragraphs[startIndex];
     final ReaderParagraph endParagraph = paragraphs[endIndex];
+    final String chunkText = buffer.toString().trim();
+    if (chunkText.isEmpty) {
+      return null;
+    }
+
     return TtsChunk(
       bookId: bookId,
       startParagraphIndex: startIndex,
       endParagraphIndexInclusive: endIndex,
       startCharOffset: startParagraph.startCharOffset,
       endCharOffsetExclusive: endParagraph.endCharOffset,
-      text: buffer.toString().trim(),
+      text: chunkText,
     );
   }
 }

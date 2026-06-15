@@ -447,7 +447,12 @@ class TtsPlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _prepareNext(int sessionId, int revision, int startIndex) async {
+  Future<void> _prepareNext(
+    int sessionId,
+    int revision,
+    int startIndex, {
+    bool surfaceErrors = false,
+  }) async {
     try {
       final TtsChunk? nextChunk = _chunker.buildChunk(
         bookId: _currentBookId ?? '',
@@ -491,13 +496,29 @@ class TtsPlaybackController extends ChangeNotifier {
       _nextAudioPath = path;
       notifyListeners();
     } on MimoTtsException catch (error) {
-      if (!_isStaleTaskError(error)) {
+      if (_isStaleTaskError(error)) {
+        return;
+      }
+      await _clearPreparedNext();
+      if (surfaceErrors) {
+        rethrow;
+      }
+    } on Exception {
+      await _clearPreparedNext();
+      if (surfaceErrors) {
         rethrow;
       }
     } finally {
       _nextPreparation = null;
       notifyListeners();
     }
+  }
+
+  Future<void> _clearPreparedNext() async {
+    final String? path = _nextAudioPath;
+    _nextChunk = null;
+    _nextAudioPath = null;
+    await _cacheStore.deletePaths([path]);
   }
 
   bool _isStaleTaskError(MimoTtsException error) {
@@ -537,10 +558,25 @@ class TtsPlaybackController extends ChangeNotifier {
         _state = TtsPlaybackState.bufferingNext;
         _statusMessage = '正在准备下一段...';
         notifyListeners();
-        if (_nextPreparation != null) {
-          await _nextPreparation;
-        } else {
-          await _prepareNext(sessionId, revision, nextStart);
+        final Future<void>? pendingPreparation = _nextPreparation;
+        if (pendingPreparation != null) {
+          await pendingPreparation;
+        }
+
+        if (_disposed ||
+            sessionId != _sessionId ||
+            revision != _settingsRevision ||
+            _state == TtsPlaybackState.paused) {
+          return;
+        }
+
+        if (_nextChunk == null || _nextAudioPath == null) {
+          await _prepareNext(
+            sessionId,
+            revision,
+            nextStart,
+            surfaceErrors: true,
+          );
         }
       }
 
@@ -560,6 +596,17 @@ class TtsPlaybackController extends ChangeNotifier {
 
       final TtsChunk nextChunk = _nextChunk!;
       await _playChunk(sessionId, revision, nextChunk, bufferNext: true);
+    } on MimoTtsException catch (error) {
+      if (_isStaleTaskError(error)) {
+        return;
+      }
+      _state = TtsPlaybackState.error;
+      _statusMessage = error.message;
+      notifyListeners();
+    } on Exception {
+      _state = TtsPlaybackState.error;
+      _statusMessage = '下一段准备失败，请重试。';
+      notifyListeners();
     } finally {
       _handlingCompletion = false;
     }
