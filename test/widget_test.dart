@@ -3,12 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:novel_tts_reader/features/library/library_page.dart';
+import 'package:novel_tts_reader/services/audiobook_repository.dart';
 import 'package:novel_tts_reader/services/settings_repository.dart';
 
 void main() {
   testWidgets('shows empty library state', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     final SettingsRepository repository = SettingsRepository();
+    final AudiobookRepository audiobookRepository = AudiobookRepository();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -16,8 +18,10 @@ void main() {
           books: const [],
           isImporting: false,
           settingsRepository: repository,
+          audiobookRepository: audiobookRepository,
           onImportRequested: () async {},
           onBookSelected: (_) {},
+          onAudiobookSelected: (_) {},
         ),
       ),
     );

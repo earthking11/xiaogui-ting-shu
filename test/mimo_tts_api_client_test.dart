@@ -32,6 +32,7 @@ void main() {
       );
 
       expect(body['model'], 'mimo-v2.5-tts');
+      expect((body['audio'] as Map<String, dynamic>)['format'], 'mp3');
       final List<dynamic> messages = body['messages'] as List<dynamic>;
       expect(messages[0]['role'], 'user');
       expect(messages[1]['role'], 'assistant');

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
+import '../../models/audiobook_manifest.dart';
 import '../../models/book.dart';
 import '../../models/reading_progress.dart';
+import '../../services/audiobook_repository.dart';
 import '../../services/settings_repository.dart';
 import '../../widgets/empty_state.dart';
 
@@ -12,33 +14,44 @@ class LibraryPage extends StatefulWidget {
     required this.books,
     required this.isImporting,
     required this.settingsRepository,
+    required this.audiobookRepository,
     required this.onImportRequested,
     required this.onBookSelected,
+    required this.onAudiobookSelected,
   });
 
   final List<Book> books;
   final bool isImporting;
   final SettingsRepository settingsRepository;
+  final AudiobookRepository audiobookRepository;
   final Future<void> Function() onImportRequested;
   final ValueChanged<Book> onBookSelected;
+  final ValueChanged<Book> onAudiobookSelected;
 
   @override
   State<LibraryPage> createState() => _LibraryPageState();
 }
 
 class _LibraryPageState extends State<LibraryPage> {
-  late Future<Map<String, ReadingProgress>> _progressFuture = _loadProgress();
+  late Future<_LibraryData> _libraryFuture = _loadLibraryData();
 
   @override
   void didUpdateWidget(covariant LibraryPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.books != widget.books) {
-      _progressFuture = _loadProgress();
+      _libraryFuture = _loadLibraryData();
     }
   }
 
-  Future<Map<String, ReadingProgress>> _loadProgress() {
-    return widget.settingsRepository.loadAllProgress();
+  Future<_LibraryData> _loadLibraryData() async {
+    final results = await Future.wait([
+      widget.settingsRepository.loadAllProgress(),
+      widget.audiobookRepository.loadSummaries(widget.books),
+    ]);
+    return _LibraryData(
+      progressMap: results[0] as Map<String, ReadingProgress>,
+      audiobookSummaries: results[1] as Map<String, AudiobookSummary>,
+    );
   }
 
   @override
@@ -46,11 +59,13 @@ class _LibraryPageState extends State<LibraryPage> {
     final ReaderThemePalette palette = AppTheme.paper;
     return Scaffold(
       backgroundColor: palette.background,
-      body: FutureBuilder<Map<String, ReadingProgress>>(
-        future: _progressFuture,
+      body: FutureBuilder<_LibraryData>(
+        future: _libraryFuture,
         builder: (context, snapshot) {
           final Map<String, ReadingProgress> progressMap =
-              snapshot.data ?? const {};
+              snapshot.data?.progressMap ?? const {};
+          final Map<String, AudiobookSummary> audiobookSummaries =
+              snapshot.data?.audiobookSummaries ?? const {};
           return SafeArea(
             child: Stack(
               children: [
@@ -85,11 +100,16 @@ class _LibraryPageState extends State<LibraryPage> {
                             final Book book = widget.books[index];
                             final ReadingProgress? progress =
                                 progressMap[book.id];
+                            final AudiobookSummary? audiobookSummary =
+                                audiobookSummaries[book.id];
                             return _BookCard(
                               palette: palette,
                               book: book,
                               progress: progress,
-                              onTap: () => widget.onBookSelected(book),
+                              audiobookSummary: audiobookSummary,
+                              onReadTap: () => widget.onBookSelected(book),
+                              onAudiobookTap: () =>
+                                  widget.onAudiobookSelected(book),
                             );
                           },
                           separatorBuilder: (_, index) =>
@@ -176,7 +196,7 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '把界面收安静一点，把故事交还给文字。你读累了，也可以让 MiMo 接着念。',
+            '想马上听，就边读边听；想像歌词一样逐句跳播，就先生成整本 MP3。',
             style: TextStyle(
               color: palette.secondaryText,
               fontSize: 15,
@@ -200,13 +220,17 @@ class _BookCard extends StatelessWidget {
     required this.palette,
     required this.book,
     required this.progress,
-    required this.onTap,
+    required this.audiobookSummary,
+    required this.onReadTap,
+    required this.onAudiobookTap,
   });
 
   final ReaderThemePalette palette;
   final Book book;
   final ReadingProgress? progress;
-  final VoidCallback onTap;
+  final AudiobookSummary? audiobookSummary;
+  final VoidCallback onReadTap;
+  final VoidCallback onAudiobookTap;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +240,7 @@ class _BookCard extends StatelessWidget {
       color: palette.card,
       borderRadius: BorderRadius.circular(26),
       child: InkWell(
-        onTap: onTap,
+        onTap: onReadTap,
         borderRadius: BorderRadius.circular(26),
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -262,6 +286,28 @@ class _BookCard extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 14),
+              _AudiobookStatusLine(palette: palette, summary: audiobookSummary),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onReadTap,
+                      icon: const Icon(Icons.menu_book_outlined),
+                      label: const Text('打开阅读'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onAudiobookTap,
+                      icon: const Icon(Icons.lyrics_outlined),
+                      label: const Text('整本听书'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -281,4 +327,63 @@ class _BookCard extends StatelessWidget {
     final String day = dateTime.day.toString().padLeft(2, '0');
     return '${dateTime.year}.$month.$day';
   }
+}
+
+class _AudiobookStatusLine extends StatelessWidget {
+  const _AudiobookStatusLine({required this.palette, required this.summary});
+
+  final ReaderThemePalette palette;
+  final AudiobookSummary? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final AudiobookSummary? value = summary;
+    final String text = value == null
+        ? '整本听书：未生成'
+        : '整本听书：${_statusLabel(value)}';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: palette.background.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: palette.secondaryText,
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
+
+  String _statusLabel(AudiobookSummary summary) {
+    final String progress =
+        '${summary.generatedSentenceCount}/${summary.totalSentenceCount} 句';
+    switch (summary.status) {
+      case AudiobookJobStatus.pending:
+        return '未开始 · $progress';
+      case AudiobookJobStatus.generating:
+        return '生成中 ${(summary.progress * 100).toStringAsFixed(1)}% · $progress';
+      case AudiobookJobStatus.paused:
+        return '已暂停 · $progress';
+      case AudiobookJobStatus.completed:
+        return '可播放 · $progress';
+      case AudiobookJobStatus.error:
+        return '有 ${summary.failedSentenceCount} 句失败 · $progress';
+    }
+  }
+}
+
+class _LibraryData {
+  const _LibraryData({
+    required this.progressMap,
+    required this.audiobookSummaries,
+  });
+
+  final Map<String, ReadingProgress> progressMap;
+  final Map<String, AudiobookSummary> audiobookSummaries;
 }

@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 import 'core/app_theme.dart';
 import 'core/constants.dart';
 import 'features/library/library_page.dart';
+import 'features/audiobook/audiobook_page.dart';
 import 'features/reader/reader_page.dart';
 import 'models/book.dart';
 import 'models/reading_progress.dart';
 import 'services/book_repository.dart';
+import 'services/audiobook_repository.dart';
 import 'services/mimo_tts_api_client.dart';
 import 'services/native_file_service.dart';
 import 'services/secure_key_store.dart';
@@ -19,6 +21,7 @@ import 'services/tts_cache_store.dart';
 class AppServices {
   const AppServices({
     required this.bookRepository,
+    required this.audiobookRepository,
     required this.settingsRepository,
     required this.nativeFileService,
     required this.keyStore,
@@ -27,6 +30,7 @@ class AppServices {
   });
 
   final BookRepository bookRepository;
+  final AudiobookRepository audiobookRepository;
   final SettingsRepository settingsRepository;
   final NativeFileService nativeFileService;
   final SecureKeyStore keyStore;
@@ -52,6 +56,7 @@ class NovelTtsReaderBootstrap extends StatefulWidget {
 class _NovelTtsReaderBootstrapState extends State<NovelTtsReaderBootstrap> {
   late final AppServices _services = AppServices(
     bookRepository: BookRepository(),
+    audiobookRepository: AudiobookRepository(),
     settingsRepository: SettingsRepository(),
     nativeFileService: NativeFileService(),
     keyStore: SecureKeyStore(),
@@ -121,6 +126,7 @@ class NovelTtsReaderApp extends StatefulWidget {
 class _NovelTtsReaderAppState extends State<NovelTtsReaderApp> {
   late List<Book> _books;
   Book? _currentBook;
+  Book? _currentAudiobookBook;
   bool _importing = false;
   final GlobalKey<ScaffoldMessengerState> _messengerKey =
       GlobalKey<ScaffoldMessengerState>();
@@ -254,13 +260,29 @@ class _NovelTtsReaderAppState extends State<NovelTtsReaderApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.buildAppTheme(),
       home: _currentBook == null
-          ? LibraryPage(
-              books: _books,
-              isImporting: _importing,
-              settingsRepository: widget.services.settingsRepository,
-              onImportRequested: _importBook,
-              onBookSelected: (book) => setState(() => _currentBook = book),
-            )
+          ? _currentAudiobookBook == null
+                ? LibraryPage(
+                    books: _books,
+                    isImporting: _importing,
+                    settingsRepository: widget.services.settingsRepository,
+                    audiobookRepository: widget.services.audiobookRepository,
+                    onImportRequested: _importBook,
+                    onBookSelected: (book) =>
+                        setState(() => _currentBook = book),
+                    onAudiobookSelected: (book) =>
+                        setState(() => _currentAudiobookBook = book),
+                  )
+                : AudiobookPage(
+                    key: ValueKey('audiobook-${_currentAudiobookBook!.id}'),
+                    book: _currentAudiobookBook!,
+                    bookRepository: widget.services.bookRepository,
+                    settingsRepository: widget.services.settingsRepository,
+                    audiobookRepository: widget.services.audiobookRepository,
+                    keyStore: widget.services.keyStore,
+                    apiClient: widget.services.apiClient,
+                    onBackToLibrary: () =>
+                        setState(() => _currentAudiobookBook = null),
+                  )
           : ReaderPage(
               key: ValueKey(_currentBook!.id),
               book: _currentBook!,

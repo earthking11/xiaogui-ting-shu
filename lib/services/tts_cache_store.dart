@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../core/constants.dart';
 import '../models/tts_chunk.dart';
 
 class TtsCacheStore {
@@ -15,7 +16,7 @@ class TtsCacheStore {
   }) async {
     final Directory directory = await _cacheDirectory();
     final File file = File(
-      '${directory.path}/${bookId}_${chunk.startParagraphIndex}_${chunk.endParagraphIndexInclusive}_${_safe(voiceId)}_${(speed * 100).round()}.wav',
+      '${directory.path}/${bookId}_${chunk.startParagraphIndex}_${chunk.endParagraphIndexInclusive}_${_safe(voiceId)}_${(speed * 100).round()}.${AppConstants.ttsAudioFormat}',
     );
     await file.writeAsBytes(bytes, flush: true);
     await trimCache();

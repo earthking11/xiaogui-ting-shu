@@ -13,6 +13,7 @@ class AppConstants {
   static const int ttsMinChars = 420;
   static const int ttsSoftMaxChars = 900;
   static const int ttsHardMaxChars = 1100;
+  static const String ttsAudioFormat = 'mp3';
 }
 
 class PreferenceKeys {

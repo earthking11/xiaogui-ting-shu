@@ -38,6 +38,7 @@ class MimoTtsApiClient {
     required String text,
     required String voiceId,
     required String speedPrompt,
+    String audioFormat = AppConstants.ttsAudioFormat,
   }) {
     return {
       'model': AppConstants.mimoModel,
@@ -49,7 +50,7 @@ class MimoTtsApiClient {
         },
         {'role': 'assistant', 'content': text},
       ],
-      'audio': {'format': 'wav', 'voice': voiceId},
+      'audio': {'format': audioFormat, 'voice': voiceId},
       'stream': false,
     };
   }
@@ -59,6 +60,7 @@ class MimoTtsApiClient {
     required String text,
     required String voiceId,
     required String speedPrompt,
+    String audioFormat = AppConstants.ttsAudioFormat,
   }) async {
     http.Response response;
     try {
@@ -71,6 +73,7 @@ class MimoTtsApiClient {
                 text: text,
                 voiceId: voiceId,
                 speedPrompt: speedPrompt,
+                audioFormat: audioFormat,
               ),
             ),
           )
